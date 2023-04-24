@@ -1,11 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 
+	"github.com/Tiril14/funtemps/conv"
 	"github.com/Tiril14/is105sem03/mycrypt"
 )
 
@@ -27,6 +31,7 @@ func main() {
 			if err != nil {
 				return
 			}
+			var x string
 			go func(c net.Conn) {
 				defer c.Close()
 				for {
@@ -41,14 +46,38 @@ func main() {
 					}
 					dekryptertMelding := mycrypt.Krypter([]rune(string(buf[:n])), mycrypt.ALF_SEM03, len(mycrypt.ALF_SEM03)-4)
 					log.Println("Dekrypter melding: ", string(dekryptertMelding))
-					switch msg := string(dekryptertMelding); msg {
+
+					if strings.HasPrefix(string(dekryptertMelding), "Kjevik") {
+						fields := strings.Split(string(dekryptertMelding), ";")
+						if len(fields) >= 4 {
+							celsius, err := strconv.ParseFloat(fields[3], 64)
+							if err != nil {
+								log.Println(err)
+								continue
+							}
+							fahrenheit := conv.CelsiusToFahrenheit(celsius)
+							x = fmt.Sprintf("%s;%s;%s;%.1f", fields[0], fields[1], fields[2], fahrenheit)
+							if err != nil {
+								log.Println(err)
+								return
+							}
+
+						} else {
+							log.Println("invalid input:", string(dekryptertMelding))
+						}
+					} else {
+						x = string(dekryptertMelding)
+					}
+
+					msg := string(dekryptertMelding)
+					switch msg {
 
 					case "ping":
 						svar := mycrypt.Krypter([]rune("pong"), mycrypt.ALF_SEM03, 4)
 						_, err = c.Write([]byte(string(svar)))
 
 					default:
-						svar := mycrypt.Krypter([]rune(msg), mycrypt.ALF_SEM03, 4)
+						svar := mycrypt.Krypter([]rune(x), mycrypt.ALF_SEM03, 4)
 						_, err = c.Write([]byte(string(svar)))
 
 					}
